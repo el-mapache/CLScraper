@@ -22,7 +22,7 @@ describe "Scraper" do
     
     it "saves found links in array" do
       @scrapy.links.should == []
-      @scrapy.find_links
+      @scrapy.find_links(@scrapy.get_page('http://sfbay.craigslist.org/apa/'))
       @scrapy.links.should_not == []
       @scrapy.links[1+rand(25)].should match /http:\/\/\S+.html/
     end
