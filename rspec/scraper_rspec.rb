@@ -4,7 +4,7 @@ require "./spec_helper.rb"
 describe "Scraper" do
   
   before :each do
-    @scrapy = Scraper.new 'http://sfbay.craigslist.org/search/apa?query=&srchType=A&minAsk=500&maxAsk=520&bedrooms='
+    @scrapy = Scraper.new '../parameters.yml'
   end
   
   it "should create a scraper object" do

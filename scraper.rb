@@ -2,23 +2,25 @@ require 'net/http'
 require 'nokogiri'
 require 'open-uri'
 require 'pony'
+require 'yaml'
 
 class Scraper
   attr_reader :links
   
-  def initialize url
-    @links = []
+  # push back on client! we don't need no yml. a url would suffice.
+  def initialize yml_file
     
-    page = get_page url 
+    @links = []
+    @posts_already_mailed = []
+    
+    search_url = load_yaml yml_file
+    page = get_page search_url  
     find_links page
   end
   
-  def dispatch
-    @links.each do |link|
-        page = get_page(link)
-        pages_attributes = parse_page(page)
-        mail_with_post_attributes(pages_attributes)
-      end
+  def load_yaml yml_file
+    loaded_yml = YAML.load_file yml_file
+    loaded_yml['URL_to_search']
   end
   
   def get_page url
@@ -46,29 +48,44 @@ class Scraper
   end
   
   def mail_with_post_attributes post_attributes
-    body = fetch_email_template
-    Pony.mail(:to  => 'adam.biagianti@gmail.com', :via => :smtp, :via_options => {
-        :address => 'smtp.gmail.com',
-        :port => '587',
-        :enable_starttls_auto => true,
-        :user_name => 'ryan.adam.scraper@gmail.com',
-        :password => 'passworD',
-        :authentication => :plain,
-        :domain => "HELO",
-    },
-    :subject => "Re: #{post_attributes['title']}", :body => "#{body}   \n\n\n#{post_attributes['email']}")
+    unless @posts_already_mailed.include?(post_attributes['id'])
+      body = fetch_email_template
+      begin
+        @posts_already_mailed << post_attributes['id']
+        Pony.mail(:to  => 'adam.biagianti@gmail.com', :via => :smtp, :via_options => {
+            :address => 'smtp.gmail.com',
+            :port => '587',
+            :enable_starttls_auto => true,
+            :user_name => 'ryan.adam.scraper@gmail.com',
+            :password => 'passworD',
+            :authentication => :plain,
+            :domain => "HELO",
+        },
+        :subject => "Re: #{post_attributes['title']}", :body => "#{body}   \n\n\n#{post_attributes['email']}")
+      rescue  => msg
+        puts "#{msg}"
+      end
+    end
   end
   
   def fetch_email_template
     template = ''
-    email_template = File.open '../email_template.txt', 'r'
+    email_template = File.open 'email_template.txt', 'r'
     while line = email_template.gets
       template << line + "\n"
     end
     template
   end
   
+  def dispatch
+    @links.each do |link|
+        page = get_page(link)
+        pages_attributes = parse_page(page)
+        mail_with_post_attributes(pages_attributes)
+      end
+  end
+  
 end
 
-s = Scraper.new('http://sfbay.craigslist.org/search/apa?query=&srchType=A&minAsk=500&maxAsk=520&bedrooms=')
-s.dispatch
+s = Scraper.new 'parameters.yml'
+#s.dispatch
