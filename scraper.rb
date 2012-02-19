@@ -5,10 +5,13 @@ require 'open-uri'
 require 'pony'
 require 'yaml'
 
-class Scraper
+
+CONFIGS = YAML.load_file Dir.pwd + '/Documents/Scraper-7/config/scrape_configs.yml'
+
+class Scraper    
   def initialize url
     @url = url
-    @@links = []
+    @links = []
   end
   
   def get_page page_url
@@ -18,20 +21,18 @@ class Scraper
   def find_links page, *args
     selectors =  args.join ' '
     page.css(selectors).each do |element|
-      @@links << element['href']
+      @links << element['href']
     end
   end  
 end
 
 class CLScraper < Scraper
-  attr_reader :links
-  
   def initialize url
-    @ids_file = File.open "/Users/adambiagianti/Documents/Scraper-7/posting_ids.txt", 'r'
+    @ids_file = File.open Dir.pwd + '/Documents/Scraper-7/posting_ids.txt', 'r'
     @previously_scraped_posts = {}
     super
     
-    page = get_page @url 
+    page = get_page @url
     find_links page, 'p', 'a'
     populate_id_match
   end
@@ -47,23 +48,23 @@ class CLScraper < Scraper
     post_attributes['date']    =     page.text.match(/Date:\ [0-9]{4,4}\-[0-9]{2,2}\-[0-9]{2,2},\s+[0-9]+\:[0-9]{2,2}[A-Z]+\s+[A-Z]+/).to_s[6..-1]
     post_attributes['id']      =     page.text.match(/PostingID:\s[0-9]+/).to_s[11..-1]
     
-    @ids_file.write post_attributes['id'] + "\n" unless @previously_scraped_posts[post_attributes['id']]
+    @ids_file.write(post_attributes['id'] + "\n") unless @previously_scraped_posts[post_attributes['id']]
     
     post_attributes
   end
   
   def populate_id_match
     while line = @ids_file.gets
-     p @previously_scraped_posts[line.chomp] = true
+      @previously_scraped_posts[line.chomp] = true
     end
       @ids_file.close
       @previously_scraped_posts
   end
   
   def dispatcher
-    @ids_file = File.open '/Users/adambiagianti/Documents/Scraper-7/posting_ids.txt', 'a'
+    @ids_file = File.open Dir.pwd + '/Documents/Scraper-7/posting_ids.txt', 'a'
     email_handler = EmailHandler.new @previously_scraped_posts
-    @@links.each do |link|
+    @links.each do |link|
         page = get_page link 
         page_attributes = parse_page page 
         email_handler.mailer page_attributes 
@@ -79,7 +80,7 @@ class EmailHandler
   
   def fetch_email_template
     template = ''
-    email_template = File.open './email_template.txt', 'r'
+    email_template = File.open Dir.pwd + '/Documents/Scraper-7/email_template.txt', 'r'
     while line = email_template.gets
       template << line + "\n"
     end
@@ -88,18 +89,18 @@ class EmailHandler
   end
   
   def mailer post_attributes
-    post_attributes
-    @previously_scraped_posts
+   @previously_scraped_posts
+    
     unless @previously_scraped_posts[post_attributes['id']]
       body = fetch_email_template
       begin
         @previously_scraped_posts[post_attributes['id']]
-        Pony.mail(:to  => 'adam.biagianti@gmail.com', :via => :smtp, :via_options => {
+        Pony.mail(:to  => CONFIGS['EmailTo'], :via => :smtp, :via_options => {
                   :address => 'smtp.gmail.com',
                   :port => '587',
                   :enable_starttls_auto => true,
-                  :user_name => 'ryan.adam.scraper@gmail.com',
-                  :password => 'passworD',
+                  :user_name => CONFIGS['username'],
+                  :password => CONFIGS['password'],
                   :authentication => :plain,
                   :domain => "HELO",
         },
@@ -113,4 +114,6 @@ end
 
 s = CLScraper.new "http://sfbay.craigslist.org/search/apa?query=&srchType=A&minAsk=500&maxAsk=520&bedrooms="
 s.dispatcher
+
+
 #s.email_dispatcher
