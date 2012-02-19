@@ -5,37 +5,35 @@ require 'open-uri'
 require 'pony'
 require 'yaml'
 
-class CLScraper
-  attr_reader :links
-  
-  # push back on client! we don't need no yml. a url would suffice.
-  def initialize yml_file
-    @ids_file = File.open "posting_ids.txt", 'r'
-    @links = []
-    @previously_scraped_posts = {}
-    
-    
-    search_url = load_yaml yml_file
-    page = get_page search_url  
-    find_links page, 'p', 'a'
-    populate_id_match
+class Scraper
+  def initialize url
+    @url = url
+    @@links = []
   end
   
-  def load_yaml yml_file
-    loaded_yml = YAML.load_file yml_file
-    loaded_yml['URL_to_search']
-  end
-  
-  def get_page url
-    Nokogiri::HTML open url
+  def get_page page_url
+    Nokogiri::HTML open page_url
   end
   
   def find_links page, *args
     selectors =  args.join ' '
     page.css(selectors).each do |element|
-      p element
-      @links << element['href']
+      @@links << element['href']
     end
+  end  
+end
+
+class CLScraper < Scraper
+  attr_reader :links
+  
+  def initialize url
+    @ids_file = File.open "/Users/adambiagianti/Documents/Scraper-7/posting_ids.txt", 'r'
+    @previously_scraped_posts = {}
+    super
+    
+    page = get_page @url 
+    find_links page, 'p', 'a'
+    populate_id_match
   end
   
   def parse_page page
@@ -56,36 +54,32 @@ class CLScraper
   
   def populate_id_match
     while line = @ids_file.gets
-      @previously_scraped_posts[line.chomp] = true
+     p @previously_scraped_posts[line.chomp] = true
     end
       @ids_file.close
       @previously_scraped_posts
   end
   
-  def mail_with_post_attributes post_attributes
-    unless @previously_scraped_posts[post_attributes['id']]
-      body = fetch_email_template
-      begin
-        @previously_scraped_posts[post_attributes['id']]
-        Pony.mail(:to  => 'adam.biagianti@gmail.com', :via => :smtp, :via_options => {
-            :address => 'smtp.gmail.com',
-            :port => '587',
-            :enable_starttls_auto => true,
-            :user_name => 'ryan.adam.scraper@gmail.com',
-            :password => 'passworD',
-            :authentication => :plain,
-            :domain => "HELO",
-        },
-        :subject => "Re: #{post_attributes['title']}", :body => "#{body}   \n\n\n#{post_attributes['email']}")
-      rescue  => msg
-        puts "#{msg}"
+  def dispatcher
+    @ids_file = File.open '/Users/adambiagianti/Documents/Scraper-7/posting_ids.txt', 'a'
+    email_handler = EmailHandler.new @previously_scraped_posts
+    @@links.each do |link|
+        page = get_page link 
+        page_attributes = parse_page page 
+        email_handler.mailer page_attributes 
       end
-    end
+    @ids_file.close
+  end
+end
+
+class EmailHandler
+  def initialize previously_scraped_posts
+    @previously_scraped_posts = previously_scraped_posts
   end
   
   def fetch_email_template
     template = ''
-    email_template = File.open 'email_template.txt', 'r'
+    email_template = File.open './email_template.txt', 'r'
     while line = email_template.gets
       template << line + "\n"
     end
@@ -93,19 +87,30 @@ class CLScraper
     template
   end
   
-  def email_dispatcher
-    log = Time.now
-    @ids_file = File.open 'posting_ids.txt', 'a'
-    @links.each do |link|
-        page = get_page link 
-        page_attributes = parse_page page 
-        mail_with_post_attributes page_attributes 
+  def mailer post_attributes
+    post_attributes
+    @previously_scraped_posts
+    unless @previously_scraped_posts[post_attributes['id']]
+      body = fetch_email_template
+      begin
+        @previously_scraped_posts[post_attributes['id']]
+        Pony.mail(:to  => 'adam.biagianti@gmail.com', :via => :smtp, :via_options => {
+                  :address => 'smtp.gmail.com',
+                  :port => '587',
+                  :enable_starttls_auto => true,
+                  :user_name => 'ryan.adam.scraper@gmail.com',
+                  :password => 'passworD',
+                  :authentication => :plain,
+                  :domain => "HELO",
+        },
+        :subject => "Re: #{post_attributes['title']}", :body => "#{body}   \n\n\n#{post_attributes['email']}")
+      rescue  => msg
+        puts "#{msg}"
       end
-    @ids_file.close
-    p end_time = Time.now - log
+    end
   end
-  
 end
 
-s = CLScraper.new 'parameters.yml'
+s = CLScraper.new "http://sfbay.craigslist.org/search/apa?query=&srchType=A&minAsk=500&maxAsk=520&bedrooms="
+s.dispatcher
 #s.email_dispatcher
