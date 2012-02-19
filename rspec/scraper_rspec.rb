@@ -10,7 +10,7 @@ describe "Scraper" do
   it "should create a scraper object" do
     @scrapy.should_not == nil
   end
-
+  
   
   describe "#get_page method" do
     it "should fetch a webpage for Nokogiri to parse" do
@@ -31,7 +31,6 @@ describe "Scraper" do
   end
   
   describe "the return values of #parse_page " do
-
      it "returns page information" do
        url = 'http://sfbay.craigslist.org/nby/apa/2853132006.html'
        title = "$1450 / 2br - Clean, Cute Older House in Wonderful Shape in Bodega (not Bodega Bay)  (sebastopol)"
@@ -47,6 +46,8 @@ describe "Scraper" do
        return_hash['id'].should == id
        return_hash['email'].should == email 
     end
+    
+    it "saves the posting id to an external file" 
   end
   
   describe "#dispatch" do
