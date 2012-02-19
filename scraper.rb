@@ -5,12 +5,11 @@ require 'open-uri'
 require 'pony'
 require 'yaml'
 
-
+url = ARGV
 CONFIGS = YAML.load_file Dir.pwd + '/Documents/Scraper-7/config/scrape_configs.yml'
 
 class Scraper    
-  def initialize url
-    @url = url
+  def initialize 
     @links = []
   end
   
@@ -27,12 +26,12 @@ class Scraper
 end
 
 class CLScraper < Scraper
-  def initialize url
+  def initialize 
     @ids_file = File.open Dir.pwd + '/Documents/Scraper-7/posting_ids.txt', 'r'
     @previously_scraped_posts = {}
     super
     
-    page = get_page @url
+    page = get_page url.join
     find_links page, 'p', 'a'
     populate_id_match
   end
@@ -112,7 +111,7 @@ class EmailHandler
   end
 end
 
-s = CLScraper.new "http://sfbay.craigslist.org/search/apa?query=&srchType=A&minAsk=500&maxAsk=520&bedrooms="
+s = CLScraper.new 
 s.dispatcher
 
 
