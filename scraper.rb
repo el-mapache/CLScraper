@@ -5,11 +5,11 @@ require 'open-uri'
 require 'pony'
 require 'yaml'
 
-url = ARGV
 CONFIGS = YAML.load_file Dir.pwd + '/Documents/Scraper-7/config/scrape_configs.yml'
 
 class Scraper    
-  def initialize 
+  def initialize url
+    @url = url
     @links = []
   end
   
@@ -26,12 +26,12 @@ class Scraper
 end
 
 class CLScraper < Scraper
-  def initialize 
+  def initialize url
     @ids_file = File.open Dir.pwd + '/Documents/Scraper-7/posting_ids.txt', 'r'
     @previously_scraped_posts = {}
     super
     
-    page = get_page url.join
+    page = get_page @url
     find_links page, 'p', 'a'
     populate_id_match
   end
@@ -47,7 +47,8 @@ class CLScraper < Scraper
     post_attributes['date']    =     page.text.match(/Date:\ [0-9]{4,4}\-[0-9]{2,2}\-[0-9]{2,2},\s+[0-9]+\:[0-9]{2,2}[A-Z]+\s+[A-Z]+/).to_s[6..-1]
     post_attributes['id']      =     page.text.match(/PostingID:\s[0-9]+/).to_s[11..-1]
     
-    @ids_file.write(post_attributes['id'] + "\n") unless @previously_scraped_posts[post_attributes['id']]
+    puts post_attributes['id']
+    @ids_file.write(post_attributes['id'].to_s + "\n") if !@previously_scraped_posts[post_attributes['id']]
     
     post_attributes
   end
@@ -57,7 +58,6 @@ class CLScraper < Scraper
       @previously_scraped_posts[line.chomp] = true
     end
       @ids_file.close
-      @previously_scraped_posts
   end
   
   def dispatcher
@@ -88,8 +88,6 @@ class EmailHandler
   end
   
   def mailer post_attributes
-   @previously_scraped_posts
-    
     unless @previously_scraped_posts[post_attributes['id']]
       body = fetch_email_template
       begin
@@ -104,6 +102,7 @@ class EmailHandler
                   :domain => "HELO",
         },
         :subject => "Re: #{post_attributes['title']}", :body => "#{body}   \n\n\n#{post_attributes['email']}")
+        puts "message sent"
       rescue  => msg
         puts "#{msg}"
       end
@@ -111,8 +110,5 @@ class EmailHandler
   end
 end
 
-s = CLScraper.new 
+s = CLScraper.new CONFIGS['URL']
 s.dispatcher
-
-
-#s.email_dispatcher
