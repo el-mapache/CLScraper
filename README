@@ -1,0 +1,2 @@
+Simple CLI Craigslist scraper, week two project.  Saves previously scraped posts to an external log file to minimize spamming the same posters
+multiple times.  
